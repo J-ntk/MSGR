@@ -1,0 +1,67 @@
+/* =========================================================
+   MSGR — Design tokens
+   Single source of truth for colours, type, spacing, radius,
+   shadows and motion. Reuse these in the future web app
+   (copy into Tailwind config / CSS-in-JS theme / :root).
+   ========================================================= */
+:root {
+  /* Brand colours */
+  --c-navy: #13294B;        /* primary, logo background */
+  --c-navy-deep: #0B1A33;   /* footer, deepest surfaces */
+  --c-aegean: #1D5A7A;      /* accent blue (from site icon) */
+  --c-aegean-soft: #5B9BBF;
+  --c-gold: #E3C58E;        /* CTA, highlights on navy */
+  --c-gold-deep: #C99A3E;
+  --c-gold-text: #7A5A22;   /* gold-coloured text on white (AA) */
+
+  /* Surfaces */
+  --c-white: #FFFFFF;
+  --c-sky: #E9F2F7;         /* tinted hero / tiles */
+  --c-sky-2: #F2F7FA;       /* alt section bg */
+  --c-sky-3: #D3E6F0;       /* decorative circles */
+  --c-sand: #F4E6C8;
+  --c-cream: #FCF8EF;
+
+  /* Text */
+  --c-ink: #13294B;
+  --c-ink-2: #3F5068;       /* body copy */
+  --c-muted: #6B778A;       /* secondary, 4.5:1 on white */
+  --c-on-navy: #C9D3E3;
+  --c-on-navy-2: #9AA8BF;
+
+  /* Lines */
+  --c-line: #E3E8EF;
+  --c-line-2: #D3DAE4;
+
+  /* Typography */
+  --font-display: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  --font-body: 'Golos Text', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --fs-h1: clamp(2.5rem, 4.6vw, 3.9rem);
+  --fs-h2: clamp(2rem, 3.2vw, 2.65rem);
+  --fs-h3: 1.2rem;
+  --fs-lead: 1.2rem;
+  --fs-body: 1rem;
+  --fs-small: 0.875rem;
+
+  /* Spacing & layout */
+  --container: 1180px;
+  --gutter: 32px;
+  --section-y: clamp(64px, 8vw, 104px);
+
+  /* Radius */
+  --r-sm: 10px;
+  --r-md: 16px;
+  --r-lg: 20px;
+  --r-pill: 999px;
+
+  /* Shadows */
+  --sh-card: 0 18px 40px -18px rgba(19, 41, 75, 0.35);
+  --sh-float: 0 30px 60px -30px rgba(19, 41, 75, 0.55);
+  --sh-btn: 0 10px 24px -12px rgba(11, 26, 51, 0.5);
+
+  /* Motion */
+  --ease-out: cubic-bezier(.2, .7, .2, 1);
+  --dur-fast: .2s;
+  --dur: .25s;
+  --dur-slow: .8s;
+}

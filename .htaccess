@@ -1,0 +1,23 @@
+# MSGR — Apache / Hostinger settings
+ErrorDocument 404 /404.html
+DirectoryIndex index.html index.php
+
+# Force HTTPS
+RewriteEngine On
+RewriteCond %{HTTPS} !=on
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# Keep /tools and docs off the public web
+RedirectMatch 404 ^/(tools|README\.md|preview\.html)
+
+# Caching for static assets
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/css "access plus 30 days"
+  ExpiresByType application/javascript "access plus 30 days"
+  ExpiresByType image/png "access plus 180 days"
+  ExpiresByType image/jpeg "access plus 180 days"
+</IfModule>
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css application/javascript application/json image/svg+xml
+</IfModule>
