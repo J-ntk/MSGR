@@ -103,7 +103,7 @@ p { margin: 0; }
 .fact-card {
   flex: 1 1 360px; min-width: 0; min-height: 480px; background: var(--c-navy); color: #fff;
   border-radius: var(--r-lg); display: flex; flex-direction: column; overflow: hidden; box-shadow: var(--sh-float);
-  animation: fadeUp .9s .3s var(--ease-out) both, floatY 7s 1.2s ease-in-out infinite;
+  animation: fadeUp .9s .3s var(--ease-out) both; /* entrance only — the endless float made the card jitter */
 }
 .fact-card__body { padding: 40px; display: flex; flex-direction: column; gap: 30px; flex: 1; }
 .fact-card__title { font-family: var(--font-display); font-size: 1.75rem; font-weight: 600; }
@@ -115,7 +115,8 @@ p { margin: 0; }
 
 /* Greek key band */
 .greek-key { overflow: hidden; height: 18px; opacity: .6; }
-.greek-key svg { display: block; animation: keySlide 2.4s linear infinite; }
+.greek-key { contain: paint; }
+.greek-key svg { display: block; animation: keySlide 2.4s linear infinite; will-change: transform; backface-visibility: hidden; }
 
 /* ---------- Sections ---------- */
 .section { padding: var(--section-y) 0; }
