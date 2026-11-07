@@ -50,12 +50,13 @@ try{if(localStorage.getItem('msgr-consent')==='all'){gtag('consent','update',{ad
 <a href="/MSGR/contacts/">Контакты</a>
 </nav>
 <div class="header__actions">
+<nav class="lang" aria-label="Язык / Мова / Тіл"><a class="lang__link" href="/MSGR/" hreflang="ru" lang="ru" aria-label="Русский" aria-current="true">RU</a><a class="lang__link" href="/MSGR/ua/" hreflang="uk" lang="uk" aria-label="Українська">UA</a><a class="lang__link" href="/MSGR/kz/" hreflang="kk" lang="kk" aria-label="Қазақша">KZ</a></nav>
 <a class="header__phone" href="tel:+306942770701">+30 694 277 07 01</a>
 <a class="btn btn--navy btn--sm header__cta" href="/MSGR/contacts/">Связаться с нами</a>
 <button class="burger" type="button" aria-label="Меню" aria-expanded="false" aria-controls="mobile-nav"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
 </div>
 </div>
-<nav class="mobile-nav" id="mobile-nav" aria-label="Мобильное меню">
+<nav class="mobile-nav" id="mobile-nav" data-langs aria-label="Мобильное меню">
 <a href="/MSGR/">Главная</a>
 <a href="/MSGR/about-us/">О нас</a>
 <a href="/MSGR/learning/">Образование</a>
@@ -65,6 +66,7 @@ try{if(localStorage.getItem('msgr-consent')==='all'){gtag('consent','update',{ad
 <a href="/MSGR/contacts/">Контакты</a>
 <a href="tel:+306942770701">+30 694 277 07 01</a>
 <a class="btn btn--navy" href="/MSGR/contacts/">Связаться с нами</a>
+<div class="mobile-nav__langs"><nav class="lang" aria-label="Язык / Мова / Тіл"><a class="lang__link" href="/MSGR/" hreflang="ru" lang="ru" aria-label="Русский" aria-current="true">RU</a><a class="lang__link" href="/MSGR/ua/" hreflang="uk" lang="uk" aria-label="Українська">UA</a><a class="lang__link" href="/MSGR/kz/" hreflang="kk" lang="kk" aria-label="Қазақша">KZ</a></nav></div>
 </nav>
 </header>
 <main id="content">

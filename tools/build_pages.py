@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Generates the 5 static MSGR pages with a shared header/footer.
-Run from anywhere:  python tools/build_pages.py   (regenerates all pages)
-GitHub Pages build:  MSGR_OUT=docs MSGR_BASE=/MSGR python tools/build_pages.py"""
+Run from anywhere:  python tools/build_pages.py   (regenerates all pages, RU + UA + KZ)
+GitHub Pages build:  MSGR_OUT=docs MSGR_BASE=/MSGR python tools/build_pages.py
+Translations: tools/i18n/uk.tsv and kk.tsv (line = index of the Russian text in strings_ru.json)"""
 import os, json
 
 OUT = os.environ.get("MSGR_OUT", os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -1430,21 +1431,170 @@ PAGES = {"index.html": page_home, "about-us/index.html": page_about, "learning/i
 for _a in ARTICLES:
     PAGES[f"blog/{_a['slug']}/index.html"] = (lambda a=_a: page_article(a))
 
-for rel, fn in PAGES.items():
+
+# =================== MULTILINGUAL (RU root, /ua/ Ukrainian, /kz/ Kazakh) ===================
+import re as _re2
+_I18N_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "i18n")
+LANGS = [  # (html lang, url prefix, og locale, switcher label, native name)
+    ("ru", "", "ru_RU", "RU", "Русский"),
+    ("uk", "/ua", "uk_UA", "UA", "Українська"),
+    ("kk", "/kz", "kk_KZ", "KZ", "Қазақша"),
+]
+_RU_KEYS = json.load(open(os.path.join(_I18N_DIR, "strings_ru.json"), encoding="utf-8"))
+
+
+def _load_tsv(code):
+    m = {}
+    for line in open(os.path.join(_I18N_DIR, f"{code}.tsv"), encoding="utf-8"):
+        line = line.rstrip("\n")
+        if not line:
+            continue
+        i, t = line.split("\t", 1)
+        m[_RU_KEYS[int(i)]] = t
+    return m
+
+
+H1 = {  # whole-heading translations (word order differs, esp. in Kazakh)
+    'Государственные университеты <span class="text-aegean">Греции</span>': (
+        'Державні університети <span class="text-aegean">Греції</span>',
+        '<span class="text-aegean">Грекияның</span> мемлекеттік университеттері'),
+    'Диплом вуза <span class="text-aegean">Греции</span> — профессионально, недорого, качественно': (
+        'Диплом вишу <span class="text-aegean">Греції</span> — професійно, недорого, якісно',
+        '<span class="text-aegean">Грекия</span> ЖОО дипломы — кәсіби, қолжетімді, сапалы'),
+    'Как стать студентом университета в <span class="text-aegean">Греции</span>': (
+        'Як стати студентом університету в <span class="text-aegean">Греції</span>',
+        '<span class="text-aegean">Грекияда</span> университет студенті болу жолы'),
+    'Календарь поступления в <span class="text-aegean">Грецию</span>': (
+        'Календар вступу до <span class="text-aegean">Греції</span>',
+        '<span class="text-aegean">Грекияға</span> түсу күнтізбесі'),
+    'Полезное об учёбе в <span class="text-aegean">Греции</span>': (
+        'Корисне про навчання в <span class="text-aegean">Греції</span>',
+        '<span class="text-aegean">Грекияда</span> оқу туралы пайдалы ақпарат'),
+    'Политика <span class="text-aegean">конфиденциальности</span>': (
+        'Політика <span class="text-aegean">конфіденційності</span>',
+        'Құпиялылық <span class="text-aegean">саясаты</span>'),
+    'Проверьте шансы на поступление в <span class="text-aegean">Грецию</span>': (
+        'Перевірте шанси на вступ до <span class="text-aegean">Греції</span>',
+        '<span class="text-aegean">Грекияға</span> түсу мүмкіндігіңізді тексеріңіз'),
+    'Пять пакетов для поступления в вуз <span class="text-aegean">Греции</span>': (
+        'П’ять пакетів для вступу до вишу <span class="text-aegean">Греції</span>',
+        '<span class="text-aegean">Грекия</span> ЖОО-сына түсуге арналған бес пакет'),
+    'Свяжитесь с <span class="text-aegean">нами</span>': (
+        'Зв’яжіться з <span class="text-aegean">нами</span>',
+        '<span class="text-aegean">Бізбен</span> байланысыңыз'),
+    'Учёба и высшее образование в <span class="text-aegean">Греции</span>': (
+        'Навчання та вища освіта в <span class="text-aegean">Греції</span>',
+        '<span class="text-aegean">Грекиядағы</span> оқу және жоғары білім'),
+    'Частые <span class="text-aegean">вопросы</span>': (
+        'Часті <span class="text-aegean">питання</span>',
+        'Жиі қойылатын <span class="text-aegean">сұрақтар</span>'),
+    'Эта страница <span class="text-aegean">не сохранилась</span>': (
+        'Ця сторінка <span class="text-aegean">не збереглася</span>',
+        'Бұл бет <span class="text-aegean">сақталмаған</span>'),
+}
+TR = {"uk": _load_tsv("uk"), "kk": _load_tsv("kk")}
+
+
+def _translate(html, lang):
+    m = TR[lang]
+    hi = 0 if lang == "uk" else 1
+    # 1) JSON-LD blocks: translate string values
+    def ld(mo):
+        def walk(o):
+            if isinstance(o, dict): return {k: walk(v) for k, v in o.items()}
+            if isinstance(o, list): return [walk(v) for v in o]
+            if isinstance(o, str): return m.get(o, o)
+            return o
+        return mo.group(1) + json.dumps(walk(json.loads(mo.group(2))), ensure_ascii=False) + mo.group(3)
+    html = _re2.sub(r'(<script type="application/ld\+json">)(.*?)(</script>)', ld, html, flags=_re2.S)
+    # 2) protect other scripts/styles
+    keep = []
+    def stash(mo):
+        keep.append(mo.group(0)); return f"\x00{len(keep)-1}\x00"
+    html = _re2.sub(r'<(script|style)\b[^>]*>.*?</\1>', stash, html, flags=_re2.S)
+    # 3) headings as whole units
+    html = _re2.sub(r'(<h1\b[^>]*>)(.*?)(</h1>)', lambda mo: mo.group(1) + (H1[mo.group(2)][hi] if mo.group(2) in H1 else mo.group(2)) + mo.group(3), html, flags=_re2.S)
+    # 4) attributes
+    html = _re2.sub(r'\b(alt|aria-label|placeholder|title|content)="([^"]*)"', lambda mo: f'{mo.group(1)}="{m.get(mo.group(2), mo.group(2))}"', html)
+    # 5) text nodes
+    def tn(mo):
+        raw = mo.group(1); s = raw.strip()
+        if s in m:
+            lead = raw[:len(raw) - len(raw.lstrip())]; trail = raw[len(raw.rstrip()):]
+            return ">" + lead + m[s] + trail + "<"
+        return mo.group(0)
+    html = _re2.sub(r'>([^<]+)<', tn, html)
+    html = _re2.sub(r'\x00(\d+)\x00', lambda mo: keep[int(mo.group(1))], html)
+    return html
+
+
+def _page_path(rel):
+    if rel == "404.html": return "/404.html"
+    p = "/" + rel[:-len("index.html")]
+    return p.replace("/услуги/", SERV)
+
+
+def _prefix_links(html, prefix):
+    # internal page links only (not assets/api/anchors/external)
+    def fix(mo):
+        attr, url = mo.group(1), mo.group(2)
+        if url.startswith(("/assets/", "/api/", "//")): return mo.group(0)
+        return f'{attr}="{prefix}{url}"'
+    html = _re2.sub(r'\b(href)="(/[^"]*)"', fix, html)
+    html = html.replace(f'"{SITE}/', f'"{SITE}{prefix}/')        # canonical, og:url, JSON-LD urls
+    html = html.replace(f'"{SITE}{prefix}/assets/', f'"{SITE}/assets/')  # keep og:image etc.
+    return html
+
+
+def _finalize(html, lang, rel):
+    code, prefix, locale, _, _ = [l for l in LANGS if l[0] == lang][0]
+    path = _page_path(rel)
+    html = html.replace('<html lang="ru">', f'<html lang="{code}">', 1)
+    html = html.replace('<meta property="og:locale" content="ru_RU">', f'<meta property="og:locale" content="{locale}">', 1)
+    if rel != "404.html":
+        alts = "".join(f'<link rel="alternate" hreflang="{c}" href="{SITE}{p}{path}">\n' for c, p, *_ in LANGS)
+        alts += f'<link rel="alternate" hreflang="x-default" href="{SITE}{path}">\n'
+        html = _re2.sub(r'(<link rel="canonical"[^>]*>\n)', lambda mo: mo.group(1) + alts, html, count=1)
+    sw = "".join(
+        f'<a class="lang__link" href="{p}{path if rel != "404.html" else "/"}" hreflang="{c}" lang="{c}" aria-label="{n}"'
+        + (' aria-current="true"' if c == code else "") + f'>{lab}</a>'
+        for c, p, _, lab, n in LANGS)
+    switch = f'<nav class="lang" aria-label="Язык / Мова / Тіл">{sw}</nav>'
+    html = html.replace('<div class="header__actions">', '<div class="header__actions">\n' + switch, 1)
+    html = html.replace('<nav class="mobile-nav" id="mobile-nav"', '<nav class="mobile-nav" id="mobile-nav" data-langs', 1)
+    html = html.replace('</nav>\n</header>', f'<div class="mobile-nav__langs">{switch}</div>\n</nav>\n</header>', 1)
+    return html
+
+
+def build_lang_pages(pages_ru):
+    out = {}
+    for rel, html in pages_ru.items():
+        out[rel] = _finalize(html, "ru", rel)
+        for code, prefix, *_ in LANGS[1:]:
+            t = _translate(html, code)
+            t = _prefix_links(t, prefix)
+            out[prefix.lstrip("/") + "/" + rel] = _finalize(t, code, rel)
+    return out
+
+
+_RU = {rel: fn() for rel, fn in PAGES.items()}
+_ALL = build_lang_pages(_RU)
+for rel, html in _ALL.items():
     p = os.path.join(OUT, rel)
     os.makedirs(os.path.dirname(p), exist_ok=True)
-    open(p, "w", encoding="utf-8").write(_ext(fn()))
-    print("wrote", rel)
+    open(p, "w", encoding="utf-8").write(_ext(html))
+print("wrote", len(_ALL), "pages (ru + ua + kz)")
 
-# ---------- sitemap.xml ----------
+# ---------- sitemap.xml (with language alternates) ----------
 _urls = []
 for rel in PAGES:
     if rel == "404.html":
         continue
-    path = "/" + rel[:-len("index.html")]
-    path = path.replace("/услуги/", SERV)
+    path = _page_path(rel)
     _prio = "1.0" if path == "/" else ("0.6" if path.startswith("/blog/") or path == "/privacy/" else "0.8")
-    _urls.append(f"  <url><loc>{SITE}{path}</loc><lastmod>2026-11-06</lastmod><priority>{_prio}</priority></url>")
+    alts = "".join(f'<xhtml:link rel="alternate" hreflang="{c}" href="{SITE}{px}{path}"/>' for c, px, *_ in LANGS)
+    for c, px, *_ in LANGS:
+        _urls.append(f"  <url><loc>{SITE}{px}{path}</loc><lastmod>2026-11-07</lastmod><priority>{_prio}</priority>{alts}</url>")
 open(os.path.join(OUT, "sitemap.xml"), "w", encoding="utf-8").write(
-    '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + "\n".join(_urls) + "\n</urlset>\n")
+    '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n' + "\n".join(_urls) + "\n</urlset>\n")
 print("wrote sitemap.xml", len(_urls), "urls")

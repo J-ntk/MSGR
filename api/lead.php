@@ -39,6 +39,8 @@ $phone   = $clean($d['phone'] ?? '', 80);
 $message = $clean($d['message'] ?? '', 3000);
 $source  = $clean($d['source'] ?? 'Сайт', 80);
 $page    = $clean($d['page'] ?? '', 200);
+$langMap = ['ru' => 'русский', 'uk' => 'украинский', 'kk' => 'казахский'];
+$lang    = $langMap[$clean($d['lang'] ?? 'ru', 5)] ?? 'русский';
 $consent = !empty($d['consent']);
 
 if ($name === '' || !filter_var($email, FILTER_VALIDATE_EMAIL) || !$consent) out(422, ['ok' => false, 'error' => 'validation']);
@@ -54,6 +56,7 @@ $hits[] = $now; @file_put_contents($rl, json_encode(array_values($hits)));
 $full = trim("$name $last");
 $text = "🎓 Новая заявка — MY STUDY IN GREECE\n"
       . "Источник: $source\n"
+      . "Язык сайта: $lang\n"
       . "Имя: $full\nEmail: $email\n"
       . ($phone !== '' ? "Телефон/мессенджер: $phone\n" : '')
       . ($message !== '' ? "\n$message\n" : '')

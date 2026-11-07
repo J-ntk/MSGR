@@ -115,3 +115,14 @@ a lead CRM for the team, and RU/EN/GR languages.
   ```
   then copy `assets/` and `data/` into `docs/` (already there after the first build).
 - GitHub → Settings → Pages → Source: *Deploy from a branch*, Branch: `main`, Folder: `/docs`.
+
+## Языки (RU / UA / KZ)
+
+- Русский — в корне сайта (`/`), украинский — `/ua/`, казахский (кириллица) — `/kz/`.
+- Все страницы генерируются из `tools/build_pages.py`; переводы лежат в `tools/i18n/`:
+  `strings_ru.json` (исходные русские строки) и `uk.tsv` / `kk.tsv` (строка = `номер<TAB>перевод`).
+- Чтобы поправить перевод: измените строку в `uk.tsv` или `kk.tsv` и запустите `python tools/build_pages.py`.
+- Заголовки h1 переводятся целиком (словарь `H1` в генераторе) — для правильного порядка слов.
+- В каждой странице есть hreflang (ru, uk, kk, x-default), sitemap.xml содержит все 3 версии.
+- Заявки с UA/KZ приходят в Telegram/почту с пометкой «Язык сайта».
+- Тексты UA и KZ сделаны машинно-экспертным переводом — перед запуском желательна вычитка носителем.

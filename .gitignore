@@ -5,3 +5,8 @@ __pycache__/
 *.pyc
 .DS_Store
 Thumbs.db
+
+# single-file preview (not part of the site)
+preview.html
+
+_to_delete/

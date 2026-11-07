@@ -3,6 +3,87 @@
 (function () {
   document.documentElement.classList.add('js');
   var CFG = window.MSGR_CONFIG || {};
+  /* ---------- UI texts per language (ru = root, uk = /ua/, kk = /kz/) ---------- */
+  var LANG = (document.documentElement.lang || 'ru').slice(0, 2);
+  var T = {
+    ru: {
+      needConsent: 'Пожалуйста, подтвердите согласие на обработку данных.',
+      needName: 'Пожалуйста, укажите имя и корректный email.',
+      sending: 'Отправляем…',
+      sent: 'Спасибо! Заявка отправлена — мы свяжемся с вами в рабочее время.',
+      failed: 'Не удалось отправить автоматически — открываем вашу почту. Также можно написать нам в WhatsApp.',
+      next: 'Далее', result: 'Показать результат',
+      masterT: 'Магистратура в Греции — реальный вариант',
+      masterX: 'В магистратуру документы подаются напрямую в вуз. Мы подберём программы под ваш диплом и проверим требования и стоимость.',
+      goodT: 'Шансы хорошие',
+      goodX: 'Поступление по квоте для иностранцев идёт по среднему баллу аттестата — с вашими оценками выбор факультетов будет широким.',
+      midT: 'Шансы есть — важна стратегия',
+      midX: 'Со средним баллом ниже конкурс на популярные факультеты выше, но правильный выбор вузов и порядка приоритетов заметно повышает шансы.',
+      eu: ' Для выпускников школ ЕС действует отдельная категория — уточним условия.',
+      noGreek: ' Знать греческий для подачи не нужно — на язык будет год после зачисления.',
+      tNext: 'Заявки иностранцев принимаются раз в год, обычно в начале июля. Начните готовить документы сейчас — на апостиль и переводы уходит несколько месяцев.',
+      tLater: 'Отлично — есть время спокойно подготовить документы и выбрать программы. Начните за 6–8 месяцев до подачи.',
+      tExplore: 'Начните с консультации: разберём варианты и сроки, без обязательств.',
+      pk: {
+        bronze: ['Бронзовый · €1 300', 'Подбор вуза и пошаговые инструкции — для тех, кто готов действовать сам.'],
+        silver: ['Серебряный · €2 500', 'Документы, переводы и подача заявки — полностью за вас.'],
+        gold: ['Золотой · €5 000', 'Поступление плюс переезд: жильё, встреча, страховка, ВНЖ через юриста.'],
+        brilliant: ['Бриллиантовый · €5 700', 'Всё под ключ с гарантиями — родители следят за процессом.']
+      }
+    },
+    uk: {
+      needConsent: 'Будь ласка, підтвердьте згоду на обробку даних.',
+      needName: 'Будь ласка, вкажіть ім’я та коректний email.',
+      sending: 'Надсилаємо…',
+      sent: 'Дякуємо! Заявку надіслано — ми зв’яжемося з вами в робочий час.',
+      failed: 'Не вдалося надіслати автоматично — відкриваємо вашу пошту. Також можна написати нам у WhatsApp.',
+      next: 'Далі', result: 'Показати результат',
+      masterT: 'Магістратура в Греції — реальний варіант',
+      masterX: 'До магістратури документи подаються безпосередньо до вишу. Ми підберемо програми під ваш диплом і перевіримо вимоги та вартість.',
+      goodT: 'Шанси добрі',
+      goodX: 'Вступ за квотою для іноземців відбувається за середнім балом атестата — з вашими оцінками вибір факультетів буде широким.',
+      midT: 'Шанси є — важлива стратегія',
+      midX: 'З нижчим середнім балом конкурс на популярні факультети вищий, але правильний вибір вишів і порядку пріоритетів помітно підвищує шанси.',
+      eu: ' Для випускників шкіл ЄС діє окрема категорія — уточнимо умови.',
+      noGreek: ' Знати грецьку для подачі не потрібно — на мову буде рік після зарахування.',
+      tNext: 'Заявки іноземців приймають раз на рік, зазвичай на початку липня. Почніть готувати документи вже зараз — на апостиль і переклади йде кілька місяців.',
+      tLater: 'Чудово — є час спокійно підготувати документи та обрати програми. Почніть за 6–8 місяців до подачі.',
+      tExplore: 'Почніть із консультації: розберемо варіанти та строки, без зобов’язань.',
+      pk: {
+        bronze: ['Бронзовий · €1 300', 'Підбір вишу та покрокові інструкції — для тих, хто готовий діяти сам.'],
+        silver: ['Срібний · €2 500', 'Документи, переклади та подача заявки — повністю за вас.'],
+        gold: ['Золотий · €5 000', 'Вступ плюс переїзд: житло, зустріч, страховка, посвідка через юриста.'],
+        brilliant: ['Діамантовий · €5 700', 'Усе під ключ із гарантіями — батьки стежать за процесом.']
+      }
+    },
+    kk: {
+      needConsent: 'Деректерді өңдеуге келісіміңізді растаңыз.',
+      needName: 'Атыңызды және дұрыс email көрсетіңіз.',
+      sending: 'Жіберілуде…',
+      sent: 'Рақмет! Өтінім жіберілді — жұмыс уақытында сізбен байланысамыз.',
+      failed: 'Автоматты түрде жіберу мүмкін болмады — поштаңызды ашамыз. Бізге WhatsApp арқылы да жаза аласыз.',
+      next: 'Әрі қарай', result: 'Нәтижені көрсету',
+      masterT: 'Грекиядағы магистратура — нақты мүмкіндік',
+      masterX: 'Магистратураға құжаттар тікелей ЖОО-ға тапсырылады. Дипломыңызға сай бағдарламаларды таңдап, талаптар мен құнын тексереміз.',
+      goodT: 'Мүмкіндігіңіз жақсы',
+      goodX: 'Шетелдіктерге арналған квота бойынша қабылдау аттестаттың орташа балы бойынша жүреді — сіздің бағаларыңызбен факультет таңдауы кең болады.',
+      midT: 'Мүмкіндік бар — стратегия маңызды',
+      midX: 'Орташа балл төмен болса, танымал факультеттерге бәсеке жоғары, бірақ ЖОО мен басымдық ретін дұрыс таңдау мүмкіндікті айтарлықтай арттырады.',
+      eu: ' ЕО мектептерінің түлектері үшін жеке санат бар — шарттарын нақтылаймыз.',
+      noGreek: ' Өтінім беру үшін грек тілін білу қажет емес — қабылданғаннан кейін тіл үйренуге бір жыл беріледі.',
+      tNext: 'Шетелдіктердің өтінімдері жылына бір рет, әдетте шілденің басында қабылданады. Құжаттарды қазірден дайындай бастаңыз — апостиль мен аудармаға бірнеше ай кетеді.',
+      tLater: 'Тамаша — құжаттарды асықпай дайындап, бағдарламаларды таңдауға уақыт бар. Өтінім беруден 6–8 ай бұрын бастаңыз.',
+      tExplore: 'Кеңестен бастаңыз: нұсқалар мен мерзімдерді міндеттемесіз талдаймыз.',
+      pk: {
+        bronze: ['Қола · €1 300', 'ЖОО таңдау және қадамдық нұсқаулық — өзі әрекет етуге дайындарға.'],
+        silver: ['Күміс · €2 500', 'Құжаттар, аударма және өтінім беру — толығымен біз жасаймыз.'],
+        gold: ['Алтын · €5 000', 'Түсу және көшу: тұрғын үй, қарсы алу, сақтандыру, заңгер арқылы ықтиярхат.'],
+        brilliant: ['Бриллиант · €5 700', 'Барлығы кепілдікпен толық — ата-аналар процесті бақылайды.']
+      }
+    }
+  };
+  var L = T[LANG] || T.ru;
+
   function $all(sel, root) { return [].slice.call((root || document).querySelectorAll(sel)); }
 
   /* ---------- Mobile menu ---------- */
@@ -151,25 +232,25 @@
       function say(msg, cls) { if (!status) return; status.className = 'form__status' + (cls ? ' ' + cls : ''); status.textContent = msg; }
       if (bad.length) {
         bad.forEach(function (el) { el.setAttribute('aria-invalid', 'true'); });
-        say(cons && bad.indexOf(cons) > -1 && bad.length === 1 ? 'Пожалуйста, подтвердите согласие на обработку данных.' : 'Пожалуйста, укажите имя и корректный email.', 'is-error');
+        say(cons && bad.indexOf(cons) > -1 && bad.length === 1 ? L.needConsent : L.needName, 'is-error');
         bad[0].focus();
         return;
       }
       var fd = new FormData(form);
       if (fd.get('website')) return; // bot
-      var d = { source: form.getAttribute('data-source') || 'Сайт', page: location.pathname };
+      var d = { source: form.getAttribute('data-source') || 'Сайт', page: location.pathname, lang: LANG };
       fd.forEach(function (v, k) { if (k !== 'website') d[k] = v; });
       var btn = form.querySelector('[type=submit]');
       if (btn) btn.disabled = true;
-      say('Отправляем…');
+      say(L.sending);
       var done = function () {
-        say('Спасибо! Заявка отправлена — мы свяжемся с вами в рабочее время.', 'is-ok');
+        say(L.sent, 'is-ok');
         form.reset(); if (btn) btn.disabled = false;
         if (window.dataLayer) window.dataLayer.push({ event: 'lead_submit', lead_source: d.source });
       };
       var fail = function () {
         if (btn) btn.disabled = false;
-        say('Не удалось отправить автоматически — открываем вашу почту. Также можно написать нам в WhatsApp.', 'is-error');
+        say(L.failed, 'is-error');
         mailtoFallback(d);
       };
       if (!CFG.leadEndpoint || !window.fetch) { fail(); return; }
@@ -190,7 +271,7 @@
       steps.forEach(function (s, k) { s.hidden = k !== i; });
       back.hidden = i === 0;
       next.disabled = !answered(i);
-      next.textContent = i === steps.length - 1 ? 'Показать результат' : 'Далее';
+      next.textContent = i === steps.length - 1 ? L.result : L.next;
       bar.style.width = (i / steps.length * 100) + '%';
     }
     steps.forEach(function (s) {
@@ -206,42 +287,26 @@
 
     function val(n) { var el = form.querySelector('[name=' + n + ']:checked'); return el ? el.value : ''; }
     function label(n) { var el = form.querySelector('[name=' + n + ']:checked'); return el ? el.parentNode.textContent.trim() : ''; }
-    var PK = {
-      bronze: ['Бронзовый · €1 300', 'Подбор вуза и пошаговые инструкции — для тех, кто готов действовать сам.', 'pkg-bronze'],
-      silver: ['Серебряный · €2 500', 'Документы, переводы и подача заявки — полностью за вас.', 'pkg-silver'],
-      gold: ['Золотой · €5 000', 'Поступление плюс переезд: жильё, встреча, страховка, ВНЖ через юриста.', 'pkg-gold'],
-      brilliant: ['Бриллиантовый · €5 700', 'Всё под ключ с гарантиями — родители следят за процессом.', 'pkg-brilliant']
-    };
+    var PKID = { bronze: 'pkg-bronze', silver: 'pkg-silver', gold: 'pkg-gold', brilliant: 'pkg-brilliant' };
     function show() {
       bar.style.width = '100%';
       var level = val('level'), grade = val('grade'), school = val('school'), help = val('help'), when = val('when');
       var title, text;
-      if (level === 'master') {
-        title = 'Магистратура в Греции — реальный вариант';
-        text = 'В магистратуру документы подаются напрямую в вуз. Мы подберём программы под ваш диплом и проверим требования и стоимость.';
-      } else if (grade === 'high' || grade === 'mid') {
-        title = 'Шансы хорошие';
-        text = 'Поступление по квоте для иностранцев идёт по среднему баллу аттестата — с вашими оценками выбор факультетов будет широким.';
-      } else {
-        title = 'Шансы есть — важна стратегия';
-        text = 'Со средним баллом ниже конкурс на популярные факультеты выше, но правильный выбор вузов и порядка приоритетов заметно повышает шансы.';
-      }
-      if (school === 'eu') text += ' Для выпускников школ ЕС действует отдельная категория — уточним условия.';
-      if (val('greek') === 'none') text += ' Знать греческий для подачи не нужно — на язык будет год после зачисления.';
+      if (level === 'master') { title = L.masterT; text = L.masterX; }
+      else if (grade === 'high' || grade === 'mid') { title = L.goodT; text = L.goodX; }
+      else { title = L.midT; text = L.midX; }
+      if (school === 'eu') text += L.eu;
+      if (val('greek') === 'none') text += L.noGreek;
       var pk = help === 'self' ? 'bronze' : help === 'docs' ? 'silver' : help === 'full' ? 'gold' : 'brilliant';
-      var time = when === 'next'
-        ? 'Заявки иностранцев принимаются раз в год, обычно в начале июля. Начните готовить документы сейчас — на апостиль и переводы уходит несколько месяцев.'
-        : when === 'later'
-          ? 'Отлично — есть время спокойно подготовить документы и выбрать программы. Начните за 6–8 месяцев до подачи.'
-          : 'Начните с консультации: разберём варианты и сроки, без обязательств.';
+      var time = when === 'next' ? L.tNext : when === 'later' ? L.tLater : L.tExplore;
       res.querySelector('[data-r-title]').textContent = title;
       res.querySelector('[data-r-text]').textContent = text;
-      res.querySelector('[data-r-pkg]').textContent = PK[pk][0];
-      res.querySelector('[data-r-pkgtext]').textContent = PK[pk][1];
-      var link = res.querySelector('[data-r-pkglink]'); link.setAttribute('href', link.getAttribute('href').split('#')[0] + '#' + PK[pk][2]);
+      res.querySelector('[data-r-pkg]').textContent = L.pk[pk][0];
+      res.querySelector('[data-r-pkgtext]').textContent = L.pk[pk][1];
+      var link = res.querySelector('[data-r-pkglink]'); link.setAttribute('href', link.getAttribute('href').split('#')[0] + '#' + PKID[pk]);
       res.querySelector('[data-r-time]').textContent = time;
       var summary = ['level', 'school', 'grade', 'greek', 'when', 'help'].map(function (k) { return '• ' + label(k); }).join('\n');
-      res.querySelector('[data-r-summary]').value = 'Ответы теста:\n' + summary + '\nРекомендация: ' + PK[pk][0];
+      res.querySelector('[data-r-summary]').value = 'Ответы теста:\n' + summary + '\nРекомендация: ' + T.ru.pk[pk][0] + ' (язык сайта: ' + LANG + ')';
       form.hidden = true; res.hidden = false; res.focus();
       if (window.dataLayer) window.dataLayer.push({ event: 'quiz_complete', quiz_package: pk });
     }
