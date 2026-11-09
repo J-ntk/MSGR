@@ -1,9 +1,66 @@
 #!/usr/bin/env python3
-"""Generates the 5 static MSGR pages with a shared header/footer.
-Run from anywhere:  python tools/build_pages.py   (regenerates all pages, RU + UA + KZ)
+"""Generates all static MSGR pages (RU + UA + KZ) with a shared header/footer.
+Editable content (packages, FAQ, calendar, universities, articles) lives in content/*.json —
+that is what the admin panel edits. Everything else is in this file.
+Run:  python tools/build_pages.py   (regenerates all pages, RU + UA + KZ)
 GitHub Pages build:  MSGR_OUT=docs MSGR_BASE=/MSGR python tools/build_pages.py
-Translations: tools/i18n/uk.tsv and kk.tsv (line = index of the Russian text in strings_ru.json)"""
-import os, json
+Translations of the fixed texts: tools/i18n/uk.tsv and kk.tsv."""
+import os, json, html as _html
+
+_HERE = os.path.dirname(os.path.abspath(__file__))
+CONTENT = os.environ.get("MSGR_CONTENT") or next(
+    (d for d in (os.path.join(_HERE, "content"), os.path.join(_HERE, "..", "content")) if os.path.isdir(d)), "content")
+
+
+def _cload(name):
+    return json.load(open(os.path.join(CONTENT, name), encoding="utf-8"))
+
+
+# ---- localized values from content/*.json: {"ru": ..., "uk": ..., "kk": ...} ----
+EXTRA = {"uk": {}, "kk": {}}  # RU text -> translation, merged into the page translator
+
+
+def L(v):
+    """Return the Russian text and remember its UA/KZ versions for the translated pages."""
+    if v is None or isinstance(v, (int, float)):
+        return v
+    if isinstance(v, str):
+        return v
+    esc = lambda x: _html.escape((x or "").strip(), quote=False)  # plain text from the admin panel is never HTML
+    ru = esc(v.get("ru"))
+    for c in ("uk", "kk"):
+        t = esc(v.get(c))
+        if ru and t and t != ru:
+            EXTRA[c][ru] = t
+    return ru
+
+
+TPL = {  # sentence templates with numbers/names inside
+    "since": {"ru": "с {n} г.", "uk": "з {n} р.", "kk": "{n} жылдан"},
+    "limits": {"ru": "До {w} письменных обращений в месяц и {h} ч. связи",
+               "uk": "До {w} письмових звернень на місяць і {h} год зв’язку",
+               "kk": "Айына {w} жазбаша өтінішке дейін және {h} сағ байланыс"},
+    "readmeta": {"ru": "· {n} мин чтения", "uk": "· {n} хв читання", "kk": "· оқуға {n} мин"},
+    "pill": {"ru": "Статья · {n} мин", "uk": "Стаття · {n} хв", "kk": "Мақала · {n} мин"},
+    "choose": {"ru": "Выбрать «{x}»", "uk": "Обрати «{x}»", "kk": "«{x}» пакетін таңдау"},
+}
+
+
+def T(key, **kw):
+    """Fill a template in all languages; values may themselves be localized dicts."""
+    out = {}
+    for c in ("ru", "uk", "kk"):
+        vals = {k: (v.get(c) or v.get("ru")) if isinstance(v, dict) else v for k, v in kw.items()}
+        out[c] = TPL[key][c].format(**vals)
+    return L(out)
+
+
+BODIES = {}  # marker -> {"ru": html, "uk": html, "kk": html} (rich text inserted after translation)
+
+
+def rich(key, v):
+    BODIES[key] = v
+    return f"<!--LOC:{key}-->"
 
 OUT = os.environ.get("MSGR_OUT", os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 BASE = os.environ.get("MSGR_BASE", "").rstrip("/")  # e.g. "/MSGR" for GitHub Pages project sites
@@ -555,6 +612,7 @@ def footer():
 {FAB}
 {COOKIE}
 <script src="/assets/js/config.js"></script>
+<script src="/assets/js/site-data.js"></script>
 <script src="/assets/js/main.js" defer></script>
 </body>
 </html>
@@ -666,22 +724,28 @@ def fmt(n):
     return "€" + f"{n:,}".replace(",", " ")
 
 
-PK = json.load(open(f"{OUT}/data/packages.json", encoding="utf-8"))["packages"]
+_PKDATA = _cload("packages.json")
+PK = _PKDATA["packages"]
 CLS = {"bronze": "bronze", "silver": "silver", "silver-plus": "silverplus", "gold": "gold", "brilliant": "brilliant"}
 BTN = {"bronze": "btn--outline-navy", "silver": "btn--aegean", "silver-plus": "btn--outline-navy", "gold": "btn--gold", "brilliant": "btn--gold"}
+
+
+def _short(label):
+    """Stage label without the bracketed detail: 'Аванс (сборы…)' -> 'Аванс'."""
+    return L({c: (label.get(c) or label.get("ru")).split(" (")[0] for c in ("ru", "uk", "kk")})
 
 
 def pkg_cards():
     out = []
     for i, p in enumerate(PK):
-        badge = f'<span class="pkg__badge">{p["badge"]}</span>' if p.get("badge") else ""
-        stages = "".join(f'<div class="pkg__stage"><span>{s["label"].split(" (")[0]}</span><b>{fmt(s["amount"])}</b></div>' for s in p["stages"])
-        feats = "".join(f"<li>{f}</li>" for f in p["features"])
+        badge = f'<span class="pkg__badge">{L(p["badge"])}</span>' if p.get("badge") and L(p["badge"]) else ""
+        stages = "".join(f'<div class="pkg__stage"><span>{_short(s["label"])}</span><b>{fmt(s["amount"])}</b></div>' for s in p["stages"])
+        feats = "".join(f"<li>{L(f)}</li>" for f in p["features"])
         c = p.get("consultant")
-        limits = f'<p class="pkg__limits">До {c["writtenPerMonth"]} письменных обращений в месяц и {c["hoursTotal"]} ч. связи</p>' if c else ""
+        limits = f'<p class="pkg__limits">{T("limits", w=c["writtenPerMonth"], h=c["hoursTotal"])}</p>' if c else ""
         out.append(f'''<article class="pkg pkg--{CLS[p["id"]]} lift fu d{i+3}" id="pkg-{p["id"]}">
 {badge}
-<div><p class="pkg__name">{p["name"]}</p><p class="pkg__price">{fmt(p["price"])}</p><p class="pkg__desc">{p["summary"]}</p></div>
+<div><p class="pkg__name">{L(p["name"])}</p><p class="pkg__price">{fmt(p["price"])}</p><p class="pkg__desc">{L(p["summary"])}</p></div>
 <div class="pkg__stages">{stages}</div>
 <ul class="pkg__list">{feats}</ul>
 {limits}
@@ -690,7 +754,8 @@ def pkg_cards():
     return '<div class="pkg-grid">' + "\n".join(out) + "</div>"
 
 
-COMPARE_ROWS = [
+COMPARE_ROWS = [(r["label"], r["values"]) for r in _PKDATA.get("compare", [])]
+_OLD_COMPARE_ROWS = [
     ("Подбор вуза", ["✓", "✓", "✓", "✓", "✓"]),
     ("Переводы и заверение документов", ["инструкции", "✓", "✓", "✓", "✓"]),
     ("Подача заявки представителем", ["—", "✓", "✓", "✓", "✓"]),
@@ -712,11 +777,12 @@ def compare_table():
         tag = ""
         if p["id"] == "silver": tag = '<span class="tag tag--aegean">Рекомендуем</span>'
         if p["id"] == "gold": tag = '<span class="tag tag--gold">Популярный</span>'
-        heads.append(f'<th scope="col" class="{colcls[i]}">{tag}<small>{p["name"]}</small><span class="price">{fmt(p["price"])}</span></th>')
+        heads.append(f'<th scope="col" class="{colcls[i % len(colcls)]}">{tag}<small>{L(p["name"])}</small><span class="price">{fmt(p["price"])}</span></th>')
     body = ""
     for label, vals in COMPARE_ROWS:
-        tds = "".join(f'<td{" class=\"no\"" if v not in ("✓", "✓ лично") else ""}>{v}</td>' for v in vals)
-        body += f'<tr><th scope="row" style="font-weight:400;text-align:left;padding-left:20px">{label}</th>{tds}</tr>\n'
+        vals = [L(v) for v in vals]
+        tds = "".join(f'<td{" class=\"no\"" if not v.startswith("✓") else ""}>{v}</td>' for v in vals)
+        body += f'<tr><th scope="row" style="font-weight:400;text-align:left;padding-left:20px">{L(label)}</th>{tds}</tr>\n'
     table = f'''<div class="table-wrap compare-desktop reveal"><table class="compare">
 <caption class="sr-only">Сравнение пакетов услуг</caption>
 <thead><tr><th scope="col">Что входит</th>{"".join(heads)}</tr></thead>
@@ -727,24 +793,24 @@ def compare_table():
     tabs, panels = [], []
     for i, p in enumerate(PK):
         sel = "true" if p["id"] == "silver" else "false"
-        tabs.append(f'<button type="button" class="cm-tab cm-tab--{CLS[p["id"]]}" role="tab" id="{uid}-t-{p["id"]}" aria-controls="{uid}-p-{p["id"]}" aria-selected="{sel}" tabindex="{0 if sel == "true" else -1}"><span class="cm-tab__name">{p["name"]}</span><span class="cm-tab__price">{fmt(p["price"])}</span></button>')
+        tabs.append(f'<button type="button" class="cm-tab cm-tab--{CLS[p["id"]]}" role="tab" id="{uid}-t-{p["id"]}" aria-controls="{uid}-p-{p["id"]}" aria-selected="{sel}" tabindex="{0 if sel == "true" else -1}"><span class="cm-tab__name">{L(p["name"])}</span><span class="cm-tab__price">{fmt(p["price"])}</span></button>')
         items = []
         for label, vals in COMPARE_ROWS:
-            v = vals[i]
+            v = L(vals[i])
             if v.startswith("✓"):
                 state, txt = "yes", ("Включено" + (" · лично" if "лично" in v else ""))
             elif v == "—":
                 state, txt = "no", "Не входит"
             else:
-                state, txt = "part", v[0].upper() + v[1:]
+                state, txt = "part", L({c: (vals[i].get(c) or v)[:1].upper() + (vals[i].get(c) or v)[1:] for c in ("ru", "uk", "kk")})
             icon = {"yes": "✓", "no": "—", "part": "+"}[state]
-            items.append(f'<li class="cm-item cm-item--{state}"><span class="cm-item__icon" aria-hidden="true">{icon}</span><span class="cm-item__label">{label}</span><span class="cm-item__state">{txt}</span></li>')
-        badge = f'<span class="cm-panel__badge">{p["badge"]}</span>' if p.get("badge") else ""
+            items.append(f'<li class="cm-item cm-item--{state}"><span class="cm-item__icon" aria-hidden="true">{icon}</span><span class="cm-item__label">{L(label)}</span><span class="cm-item__state">{txt}</span></li>')
+        badge = f'<span class="cm-panel__badge">{L(p["badge"])}</span>' if p.get("badge") and L(p["badge"]) else ""
         hidden = "" if p["id"] == "silver" else " hidden"
         panels.append(f'''<div class="cm-panel cm-panel--{CLS[p["id"]]}" role="tabpanel" id="{uid}-p-{p["id"]}" aria-labelledby="{uid}-t-{p["id"]}"{hidden}>
-<div class="cm-panel__head"><div><p class="cm-panel__name">{p["name"]} {badge}</p><p class="cm-panel__summary">{p["summary"]}</p></div><p class="cm-panel__price">{fmt(p["price"])}</p></div>
+<div class="cm-panel__head"><div><p class="cm-panel__name">{L(p["name"])} {badge}</p><p class="cm-panel__summary">{L(p["summary"])}</p></div><p class="cm-panel__price">{fmt(p["price"])}</p></div>
 <ul class="cm-list">{"".join(items)}</ul>
-<div class="cm-panel__actions"><a class="btn {BTN[p["id"]]}" href="{WA}">Выбрать «{p["name"]}»</a><a class="more-link" href="{SERV}#pkg-{p["id"]}">Все условия пакета →</a></div>
+<div class="cm-panel__actions"><a class="btn {BTN[p["id"]]}" href="{WA}">{T("choose", x=p["name"])}</a><a class="more-link" href="{SERV}#pkg-{p["id"]}">Все условия пакета →</a></div>
 </div>''')
     mobile = f'''<div class="compare-mobile reveal" data-tabs>
 <p class="cm-hint">Выберите пакет, чтобы увидеть, что в него входит:</p>
@@ -1019,132 +1085,25 @@ def page_contacts():
 MINEDU = "https://www.minedu.gov.gr/"
 FOREIGN_PORTAL = "https://exams-foreigner.it.minedu.gov.gr"
 
-UNIVERSITIES = [
-    # (name, greek short, city, group, founded, profile)
-    ("Национальный и Каподистриев университет Афин", "ΕΚΠΑ", "Афины", "athens", "1837", "Старейший университет Греции: медицина, право, филология, естественные науки."),
-    ("Национальный технический университет Афин", "ΕΜΠ · «Политехнио»", "Афины", "athens", "1836", "Инженерия, архитектура, информатика."),
-    ("Афинский университет экономики и бизнеса", "ΟΠΑ", "Афины", "athens", "1920", "Экономика, финансы, менеджмент, информатика."),
-    ("Университет Пантеон", "Πάντειο", "Афины", "athens", "1927", "Политология, социология, международные отношения, медиа."),
-    ("Сельскохозяйственный университет Афин", "ΓΠΑ", "Афины", "athens", "1920", "Агрономия, пищевые технологии, биотехнологии."),
-    ("Университет Западной Аттики", "ΠΑΔΑ", "Афины", "athens", "2018", "Инженерия, здравоохранение, прикладные науки."),
-    ("Университет Харокопио", "Χαροκόπειο", "Афины", "athens", "1990", "Диетология, география, информатика."),
-    ("Университет Пирея", "ΠΑΠΕΙ", "Пирей", "athens", "1938", "Экономика, судоходство, банковское дело, информатика."),
-    ("Университет Аристотеля в Салониках", "ΑΠΘ", "Салоники", "thess", "1925", "Крупнейший университет Греции — почти все направления."),
-    ("Университет Македонии", "ΠΑΜΑΚ", "Салоники", "thess", "1957", "Экономика, бизнес, прикладная информатика, балканистика."),
-    ("Международный университет Греции", "ΔΙΠΑΕ", "Салоники и Северная Греция", "thess", "2019", "Инженерия, экономика, программы на английском (в нынешнем виде — с 2019 г.)."),
-    ("Университет Патр", "Πανεπιστήμιο Πατρών", "Патры", "other", "1964", "Инженерия, медицина, естественные науки."),
-    ("Университет Крита", "Πανεπιστήμιο Κρήτης", "Ираклион, Ретимно", "other", "1973", "Медицина, естественные и гуманитарные науки."),
-    ("Технический университет Крита", "Πολυτεχνείο Κρήτης", "Ханья", "other", "1977", "Инженерия и науки об окружающей среде."),
-    ("Университет Янины", "Πανεπιστήμιο Ιωαννίνων", "Янина", "other", "1964", "Медицина, естественные науки, филология."),
-    ("Университет Фессалии", "Πανεπιστήμιο Θεσσαλίας", "Волос, Лариса и др.", "other", "1984", "Инженерия, медицина, агрономия, науки о жизни."),
-    ("Фракийский университет им. Демокрита", "ΔΠΘ", "Комотини, Ксанти, Александруполис", "other", "1973", "Право, инженерия, медицина."),
-    ("Ионический университет", "Ιόνιο Πανεπιστήμιο", "Корфу", "other", "1984", "Музыка, перевод, история, информатика."),
-    ("Эгейский университет", "Πανεπιστήμιο Αιγαίου", "Острова Эгейского моря", "other", "1984", "Бизнес, туризм, окружающая среда."),
-]
+# ---- editable collections (content/*.json, edited in the admin panel) ----
+UNIVERSITIES = _cload("universities.json")
+CALENDAR = _cload("calendar.json")
+FAQ = _cload("faq.json")
+ARTICLES = sorted(_cload("articles.json"), key=lambda a: a["date"], reverse=True)
 
-CALENDAR = [
-    # (when, title, text, kind)  kind: prep | key | after
-    ("Ноябрь — март", "Консультация и выбор программ", "Оцениваем шансы, подбираем вузы и специальности, составляем план документов.", "prep"),
-    ("Январь — июнь", "Документы", "Аттестат: заверенная копия и официальный перевод на греческий, апостиль. Справка о соответствии (βεβαίωση αντιστοιχίας) и пересчёт оценки в 20-балльную шкалу, если в аттестате другая система.", "prep"),
-    ("2 — 9 июля 2026", "Электронная подача заявки", f"Заявка-μηχανογραφικό для иностранцев подаётся онлайн на портале Министерства образования. Приезжать в Грецию не нужно.", "key"),
-    ("до 10 июля 2026", "Отправка документов курьером", "Распечатанная и подписанная заявка с копиями документов отправляется в Министерство (Маруси, Афины) — только курьерской службой.", "key"),
-    ("Начало сентября", "Результаты", "Министерство публикует списки зачисленных по категории иностранцев.", "key"),
-    ("11 — 25 сентября 2026", "Зачисление в вуз", "Регистрация в секретариате факультета — лично, через представителя по доверенности или почтой.", "key"),
-    ("Сентябрь — октябрь", "Виза D и переезд", "Национальная студенческая виза типа D, затем — подача на вид на жительство для учёбы уже в Греции.", "after"),
-    ("Первый учебный год", "Греческий язык", "Языковые курсы — не менее 12 месяцев на изучение греческого.", "after"),
-]
 
-FAQ = [
-    ("Поступление", [
-        ("Нужно ли знать греческий для поступления?", "Нет. При подаче документов знание греческого не требуется. После зачисления у студента есть не менее 12 месяцев на изучение языка — мы помогаем записаться на курсы."),
-        ("Есть ли вступительные экзамены?", "По специальной квоте для иностранцев (выпускников школ вне Греции) экзаменов нет: распределение идёт по среднему баллу аттестата, переведённому в греческую 20-балльную шкалу."),
-        ("Когда подавать документы?", "Министерство образования принимает заявки иностранцев раз в год, обычно в начале июля. В 2026 году электронная подача шла со 2 по 9 июля, а документы курьером принимались до 10 июля. Подробности — в календаре поступления."),
-        ("Какие документы нужны?", "Основные: аттестат (заверенная копия и официальный перевод на греческий), паспорт, фото, справка о соответствии аттестата (βεβαίωση αντιστοιχίας) и, если оценки не в 20-балльной шкале, справка о пересчёте балла. Документы из-за рубежа обычно нужно апостилировать. Точный список зависит от страны — проверим ваш."),
-        ("Нужно ли приезжать в Грецию для подачи?", "Нет. Заявка подаётся онлайн, документы отправляются курьером. Приехать нужно уже после зачисления — для учёбы и оформления ВНЖ."),
-        ("Можно ли поступить в магистратуру с дипломом бакалавра из СНГ?", "Да. В магистратуру документы подаются напрямую в вуз на конкретную программу; требования, сроки и стоимость устанавливает каждая программа. Поможем подобрать подходящие и подготовить документы."),
-    ]),
-    ("Стоимость", [
-        ("Обучение в государственных вузах бесплатное?", "Для граждан ЕС бакалавриат в государственных вузах бесплатный. Иностранцы, поступающие по специальной квоте, традиционно учатся без платы за обучение. При этом с 2024 года закон (ν. 5094/2024) разрешает государственным вузам принимать иностранцев на греческоязычные программы и на платной основе — размер платы устанавливает сам вуз. Магистерские программы, как правило, платные. Какие условия действуют для вашей программы — уточним на консультации."),
-        ("Сколько стоят ваши услуги?", "Пять пакетов — от €1 300 до €5 700, оплата поэтапно: основная часть — после выбора вуза и программы. Скрытых платежей нет. Сравнение пакетов — на странице «Услуги»."),
-    ]),
-    ("Жизнь в Греции", [
-        ("Какая виза нужна студенту?", "Гражданам стран вне ЕС нужна национальная студенческая виза типа D, которую оформляют до въезда. После приезда подаётся заявление на вид на жительство для учёбы."),
-        ("На какой срок дают ВНЖ?", "Вид на жительство для учёбы выдаётся на период обучения и продлевается при продолжении учёбы. Поможем с документами и записью — в пакетах «Золотой» и «Бриллиантовый» с вами на встречах будет юрист."),
-        ("Можно ли работать во время учёбы?", "Да, студентам из стран вне ЕС с ВНЖ для учёбы разрешена частичная занятость (part-time). Допустимое число часов в неделю определяет закон — актуальные условия подскажем."),
-        ("Помогаете ли вы с жильём?", "Да. В пакетах «Золотой» и «Бриллиантовый» мы заранее подбираем квартиру и встречаем в аэропорту, в пакете «Серебряный» это доступно как дополнительная услуга."),
-    ]),
-]
-
-ARTICLES = [
-    {
-        "slug": "kak-postupit-v-universitet-grecii",
-        "title": "Как поступить в государственный университет Греции: пошагово",
-        "desc": "Квота для иностранцев, документы, сроки подачи и зачисления — понятная инструкция для абитуриентов из России, Украины и СНГ.",
-        "date": "2026-11-06",
-        "read": "6 мин",
-        "art": "learn",
-        "body": f"""
-<p class="lead">Государственные университеты Греции принимают иностранцев по специальной квоте — без вступительных экзаменов и без знания греческого на момент подачи. Разбираем процесс по шагам.</p>
-<h2>1. Кто может поступать по квоте для иностранцев</h2>
-<p>Отдельная категория предусмотрена для иностранцев, окончивших школу за пределами Греции. Вузы ежегодно выделяют для них места сверх основного набора, а распределение идёт по среднему баллу аттестата.</p>
-<h2>2. Подготовка документов</h2>
-<p>Это самый долгий этап — начинайте за несколько месяцев. Обычно нужны:</p>
-<ul>
-<li>аттестат — заверенная копия и официальный перевод на греческий язык;</li>
-<li>справка о соответствии аттестата греческому (βεβαίωση αντιστοιχίας);</li>
-<li>справка о пересчёте оценки в 20-балльную шкалу — если в аттестате другая система;</li>
-<li>паспорт, фотография, подписанная декларация.</li>
-</ul>
-<p>Документы, выданные за рубежом, как правило, нужно апостилировать. Точный перечень зависит от страны.</p>
-<h2>3. Электронная заявка</h2>
-<p>Заявка (μηχανογραφικό) подаётся онлайн на портале Министерства образования. В 2026 году приём шёл со 2 по 9 июля. В заявке указываются выбранные факультеты в порядке приоритета — от этого выбора во многом зависит результат.</p>
-<h2>4. Отправка документов курьером</h2>
-<p>Распечатанная и подписанная заявка вместе с копиями документов отправляется в Министерство — только курьерской службой. В 2026 году крайний срок отправки — 10 июля.</p>
-<h2>5. Результаты и зачисление</h2>
-<p>Результаты публикуются в начале сентября. Затем зачисленные регистрируются в секретариате своего факультета: в 2026 году — с 11 по 25 сентября, лично, через представителя или почтой.</p>
-<h2>6. Виза, переезд и язык</h2>
-<p>После зачисления оформляется национальная студенческая виза типа D, а после приезда — вид на жительство для учёбы. Первый год обычно посвящён изучению греческого языка.</p>
-<div class="note"><b>Важно о стоимости.</b> По квоте для иностранцев государственные вузы традиционно не берут плату за обучение, но с 2024 года закон разрешает им принимать иностранцев и на платные места. Условия зависят от программы — проверяйте их до подачи.</div>
-<p>Даты меняются каждый год — актуальный график смотрите в нашем <a href="/calendar/">календаре поступления</a> или на сайте <a href="{MINEDU}">Министерства образования Греции</a>.</p>
-""",
-    },
-    {
-        "slug": "viza-i-vnzh-studenta-v-grecii",
-        "title": "Студенческая виза D и ВНЖ в Греции: что нужно знать",
-        "desc": "Какая виза нужна студенту из-за пределов ЕС, как получить вид на жительство для учёбы и можно ли работать во время обучения.",
-        "date": "2026-11-06",
-        "read": "4 мин",
-        "art": "cont",
-        "body": """
-<p class="lead">Чтобы учиться в Греции дольше 90 дней, гражданам стран вне Евросоюза нужны два документа: национальная виза типа D и затем вид на жительство для учёбы.</p>
-<h2>Виза типа D</h2>
-<p>Национальная студенческая виза оформляется в консульстве Греции до въезда в страну — после того как вы получили подтверждение зачисления. С ней вы въезжаете в Грецию и подаёте документы на ВНЖ.</p>
-<h2>Вид на жительство для учёбы</h2>
-<p>После приезда студент подаёт заявление на ВНЖ для целей обучения. Он выдаётся на период учёбы и продлевается, пока вы продолжаете обучение. Обычно для оформления нужны:</p>
-<ul>
-<li>паспорт с визой D и подтверждение зачисления в вуз;</li>
-<li>медицинская страховка;</li>
-<li>подтверждение средств на проживание;</li>
-<li>подтверждение адреса в Греции.</li>
-</ul>
-<h2>Можно ли работать</h2>
-<p>Да. Студентам из стран вне ЕС с ВНЖ для учёбы разрешена частичная занятость (part-time). Лимит часов в неделю установлен законом и в последние годы пересматривался — перед устройством на работу уточните актуальные условия.</p>
-<h2>Чем мы помогаем</h2>
-<p>В пакетах MY STUDY IN GREECE есть консультации по визе и ВНЖ, а в пакетах «Золотой» и «Бриллиантовый» документы на вид на жительство оформляются через юриста, который приходит с вами на встречи.</p>
-<div class="note"><b>Обратите внимание.</b> Требования к документам и суммам могут меняться. Перед подачей всегда проверяйте актуальные условия в консульстве и миграционной службе.</div>
-""",
-    },
-]
+def _fdate(d):
+    return f"{d[8:10]}.{d[5:7]}.{d[:4]}"
 
 
 def page_universities():
     cards = []
-    for name, gr, city, grp, year, prof in UNIVERSITIES:
-        cards.append(f'''<article class="uni lift reveal" data-group="{grp}">
-<div class="uni__top"><span class="uni__city">{city}</span><span class="uni__year">с {year} г.</span></div>
-<h3>{name}</h3>
-<p class="uni__gr">{gr}</p>
-<p>{prof}</p>
+    for u in UNIVERSITIES:
+        cards.append(f'''<article class="uni lift reveal" data-group="{u["group"]}">
+<div class="uni__top"><span class="uni__city">{L(u["city"])}</span><span class="uni__year">{T("since", n=u["founded"])}</span></div>
+<h3>{L(u["name"])}</h3>
+<p class="uni__gr">{_html.escape(u.get("greek", ""))}</p>
+<p>{L(u["profile"])}</p>
 </article>''')
     return head("Университеты Греции — MY STUDY IN GREECE",
                 "Государственные университеты Греции: Афины, Салоники, Патры, Крит и другие города. Поможем выбрать вуз и программу.", "/universities/") + header("universities") + \
@@ -1170,13 +1129,13 @@ def page_universities():
 
 def page_calendar():
     items = []
-    for when, title, text, kind in CALENDAR:
-        portal = f'<a class="more-link" href="{FOREIGN_PORTAL}">Портал подачи заявок →</a>' if "Электронная" in title else ""
-        items.append(f'''<li class="tl__item tl__item--{kind} reveal">
+    for c in CALENDAR:
+        portal = f'<a class="more-link" href="{FOREIGN_PORTAL}">Портал подачи заявок →</a>' if c.get("portal") else ""
+        items.append(f'''<li class="tl__item tl__item--{c.get("kind", "prep")} reveal">
 <span class="tl__dot" aria-hidden="true"></span>
-<p class="tl__when">{when}</p>
-<h3>{title}</h3>
-<p>{text}</p>{portal}
+<p class="tl__when">{L(c["when"])}</p>
+<h3>{L(c["title"])}</h3>
+<p>{L(c["text"])}</p>{portal}
 </li>''')
     return head("Календарь поступления в вузы Греции — MY STUDY IN GREECE",
                 "Сроки поступления иностранцев в государственные вузы Греции: подготовка документов, электронная заявка в июле, зачисление в сентябре.", "/calendar/") + header("") + \
@@ -1204,9 +1163,10 @@ def page_calendar():
 
 def page_faq():
     groups, schema = [], []
-    for gname, qs in FAQ:
+    for g in FAQ:
+        qs = [(L(i["q"]), L(i["a"])) for i in g["items"]]
         items = "".join(f'<details class="faq__item"><summary>{q}</summary><div class="faq__a"><p>{a}</p></div></details>' for q, a in qs)
-        groups.append(f'<div class="faq__group reveal"><h2 class="faq__h">{gname}</h2>{items}</div>')
+        groups.append(f'<div class="faq__group reveal"><h2 class="faq__h">{L(g["group"])}</h2>{items}</div>')
         schema += [{"@type": "Question", "name": q, "acceptedAnswer": {"@type": "Answer", "text": a}} for q, a in qs]
     ld = json.dumps({"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": schema}, ensure_ascii=False)
     return head("Вопросы и ответы — MY STUDY IN GREECE",
@@ -1288,9 +1248,9 @@ def page_quiz():
 
 def page_blog():
     cards = "".join(f'''<article class="post-card lift reveal">
-<p class="post-card__meta"><time datetime="{a["date"]}">{a["date"][8:10]}.{a["date"][5:7]}.{a["date"][:4]}</time> · {a["read"]} чтения</p>
-<h2><a href="/blog/{a["slug"]}/">{a["title"]}</a></h2>
-<p>{a["desc"]}</p>
+<p class="post-card__meta"><time datetime="{a["date"]}">{_fdate(a["date"])}</time> {T("readmeta", n=a["minutes"])}</p>
+<h2><a href="/blog/{a["slug"]}/">{L(a["title"])}</a></h2>
+<p>{L(a["desc"])}</p>
 <a class="more-link" href="/blog/{a["slug"]}/" aria-hidden="true" tabindex="-1">Читать →</a>
 </article>''' for a in ARTICLES)
     return head("Статьи об учёбе в Греции — MY STUDY IN GREECE",
@@ -1304,19 +1264,20 @@ def page_blog():
 
 
 def page_article(a):
-    others = "".join(f'<li><a href="/blog/{o["slug"]}/">{o["title"]}</a></li>' for o in ARTICLES if o is not a)
-    ld = json.dumps({"@context": "https://schema.org", "@type": "Article", "headline": a["title"], "description": a["desc"],
+    others = "".join(f'<li><a href="/blog/{o["slug"]}/">{L(o["title"])}</a></li>' for o in ARTICLES[:4] if o is not a)
+    title, desc = L(a["title"]), L(a["desc"])
+    ld = json.dumps({"@context": "https://schema.org", "@type": "Article", "headline": title, "description": desc,
                      "datePublished": a["date"], "inLanguage": "ru", "author": {"@type": "Organization", "name": "MY STUDY IN GREECE"},
                      "publisher": {"@type": "Organization", "name": "MY STUDY IN GREECE", "logo": {"@type": "ImageObject", "url": SITE + "/assets/img/logo.png"}},
                      "mainEntityOfPage": f'{SITE}/blog/{a["slug"]}/'}, ensure_ascii=False)
-    return head(f'{a["title"]} — MY STUDY IN GREECE', a["desc"], f'/blog/{a["slug"]}/') + header("") + \
-        hero_simple(f'Статья · {a["read"]}', a["title"], a["desc"], a["art"]) + f'''
+    return head(f'{title} — MY STUDY IN GREECE', desc, f'/blog/{a["slug"]}/') + header("") + \
+        hero_simple(T("pill", n=a["minutes"]), title, desc, (a.get("art") if a.get("art") in ART else "blog")) + f'''
 <section class="section">
 <div class="container article-wrap">
 <nav class="crumbs" aria-label="Навигация"><a href="/">Главная</a> / <a href="/blog/">Статьи</a></nav>
 <article class="prose">
-<p class="post-card__meta">Опубликовано <time datetime="{a["date"]}">{a["date"][8:10]}.{a["date"][5:7]}.{a["date"][:4]}</time></p>
-{a["body"]}
+<p class="post-card__meta">Опубликовано <time datetime="{a["date"]}">{_fdate(a["date"])}</time></p>
+{rich("body-" + a["slug"], a["body"])}
 </article>
 <aside class="article-aside">
 <div class="aside-card"><p class="aside-card__h">Проверьте шансы</p><p>6 вопросов — и предварительная оценка за минуту.</p><a class="btn btn--gold btn--sm" href="/quiz/">Пройти тест</a></div>
@@ -1566,12 +1527,19 @@ def _finalize(html, lang, rel):
     return html
 
 
+def _bodies(html, lang):
+    return _re2.sub(r"<!--LOC:([\w-]+)-->", lambda mo: (BODIES[mo.group(1)].get(lang) or BODIES[mo.group(1)].get("ru") or ""), html)
+
+
 def build_lang_pages(pages_ru):
+    for c in ("uk", "kk"):  # content from the admin panel wins over the old dictionary
+        TR[c].update(EXTRA[c])
     out = {}
     for rel, html in pages_ru.items():
-        out[rel] = _finalize(html, "ru", rel)
+        out[rel] = _finalize(_bodies(html, "ru"), "ru", rel)
         for code, prefix, *_ in LANGS[1:]:
             t = _translate(html, code)
+            t = _bodies(t, code)
             t = _prefix_links(t, prefix)
             out[prefix.lstrip("/") + "/" + rel] = _finalize(t, code, rel)
     return out
@@ -1586,6 +1554,9 @@ for rel, html in _ALL.items():
 print("wrote", len(_ALL), "pages (ru + ua + kz)")
 
 # ---------- sitemap.xml (with language alternates) ----------
+import datetime as _dt
+_TODAY = os.environ.get("MSGR_DATE") or _dt.date.today().isoformat()
+_LASTMOD = {f'/blog/{a["slug"]}/': a.get("updated") or a["date"] for a in ARTICLES}
 _urls = []
 for rel in PAGES:
     if rel == "404.html":
@@ -1594,7 +1565,21 @@ for rel in PAGES:
     _prio = "1.0" if path == "/" else ("0.6" if path.startswith("/blog/") or path == "/privacy/" else "0.8")
     alts = "".join(f'<xhtml:link rel="alternate" hreflang="{c}" href="{SITE}{px}{path}"/>' for c, px, *_ in LANGS)
     for c, px, *_ in LANGS:
-        _urls.append(f"  <url><loc>{SITE}{px}{path}</loc><lastmod>2026-11-07</lastmod><priority>{_prio}</priority>{alts}</url>")
+        _urls.append(f"  <url><loc>{SITE}{px}{path}</loc><lastmod>{_LASTMOD.get(path, _TODAY)}</lastmod><priority>{_prio}</priority>{alts}</url>")
 open(os.path.join(OUT, "sitemap.xml"), "w", encoding="utf-8").write(
     '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n' + "\n".join(_urls) + "\n</urlset>\n")
 print("wrote sitemap.xml", len(_urls), "urls")
+
+# ---------- data for scripts + the future web app ----------
+_site_data = {"packages": [{"id": p["id"], "price": p["price"],
+                            "name": {c: (p["name"].get(c) or p["name"]["ru"]) for c in ("ru", "uk", "kk")},
+                            "quiz": {c: ((p.get("quizText") or {}).get(c) or (p.get("quizText") or {}).get("ru") or "") for c in ("ru", "uk", "kk")}}
+                           for p in PK]}
+os.makedirs(os.path.join(OUT, "assets", "js"), exist_ok=True)
+open(os.path.join(OUT, "assets", "js", "site-data.js"), "w", encoding="utf-8").write(
+    "window.MSGR_DATA=" + json.dumps(_site_data, ensure_ascii=False) + ";\n")
+os.makedirs(os.path.join(OUT, "data"), exist_ok=True)
+json.dump({"_comment": "Generated from content/packages.json by tools/build_pages.py — edit in the admin panel, not here.",
+           "currency": _PKDATA.get("currency", "EUR"), "packages": PK}, open(os.path.join(OUT, "data", "packages.json"), "w", encoding="utf-8"),
+          ensure_ascii=False, indent=1)
+print("wrote assets/js/site-data.js + data/packages.json")

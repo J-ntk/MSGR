@@ -1,23 +1,63 @@
-# MSGR — Apache / Hostinger settings
+# MSGR — Apache settings (Beget hosting)
+AddDefaultCharset UTF-8
 ErrorDocument 404 /404.html
 DirectoryIndex index.html index.php
+Options -Indexes
 
-# Force HTTPS
 RewriteEngine On
+
+# 1. One canonical address: https + no www
+# (Beget runs nginx in front of Apache, so also trust X-Forwarded-Proto — avoids redirect loops)
+RewriteCond %{HTTP_HOST} ^www\. [NC]
+RewriteRule ^ https://mystudygr.com%{REQUEST_URI} [L,R=301,NE]
 RewriteCond %{HTTPS} !=on
-RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+RewriteCond %{HTTP:X-Forwarded-Proto} !=https
+RewriteCond %{HTTP:X-Forwarded-Ssl} !=on
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301,NE]
 
-# Keep /tools and docs off the public web
-RedirectMatch 404 ^/(tools|README\.md|preview\.html)
+# 2. Old WordPress URLs -> new pages (301 passes the ranking on)
+RewriteRule ^home/?$ https://%{HTTP_HOST}/ [L,R=301]
+RewriteRule ^главная/?$ https://%{HTTP_HOST}/ [L,R=301]
+RewriteRule ^privacy-policy/?$ https://%{HTTP_HOST}/privacy/ [L,R=301]
+RewriteRule ^author/ https://%{HTTP_HOST}/about-us/ [L,R=301]
+RewriteRule ^elementor-hf/ https://%{HTTP_HOST}/ [L,R=301]
+RewriteRule ^(comments/)?feed/?$ https://%{HTTP_HOST}/ [L,R=301]
+RewriteRule ^(wp-sitemap.*|sitemap_index)\.xml$ https://%{HTTP_HOST}/sitemap.xml [L,R=301]
+RewriteCond %{THE_REQUEST} \s/+(.*/)?index\.html[\s?]
+RewriteRule ^(.*/)?index\.html$ https://%{HTTP_HOST}/$1 [L,R=301]
+# folders without the trailing slash -> one clean https hop
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^(.+[^/])$ https://%{HTTP_HOST}/$1/ [L,R=301]
+# old ?page_id= / ?p= links
+RewriteCond %{QUERY_STRING} (^|&)page_id=3(&|$)
+RewriteRule ^$ https://%{HTTP_HOST}/privacy/? [L,R=301]
+RewriteCond %{QUERY_STRING} (^|&)(page_id|p)=[0-9]+(&|$)
+RewriteRule ^$ https://%{HTTP_HOST}/? [L,R=301]
 
-# Caching for static assets
+# 3. WordPress system paths no longer exist -> 410 Gone (Google drops them quickly)
+RewriteRule ^(wp-admin|wp-includes|wp-content)(/|$) - [G,L]
+RewriteRule ^(wp-login|xmlrpc|wp-cron|wp-signup|wp-trackback)\.php$ - [G,L]
+
+# 4. Keep internal files off the public web
+RedirectMatch 404 ^/(tools|content|docs|README\.md|MIGRATION\.md|preview\.html|\.git|\.github|\.ftp-deploy-sync-state\.json)(/|$)
+
+# Security headers
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set X-Frame-Options "SAMEORIGIN"
+</IfModule>
+
+# Caching
 <IfModule mod_expires.c>
   ExpiresActive On
+  ExpiresByType text/html "access plus 0 seconds"
   ExpiresByType text/css "access plus 30 days"
   ExpiresByType application/javascript "access plus 30 days"
   ExpiresByType image/png "access plus 180 days"
   ExpiresByType image/jpeg "access plus 180 days"
+  ExpiresByType image/svg+xml "access plus 180 days"
 </IfModule>
 <IfModule mod_deflate.c>
-  AddOutputFilterByType DEFLATE text/html text/css application/javascript application/json image/svg+xml
+  AddOutputFilterByType DEFLATE text/html text/css application/javascript application/json image/svg+xml application/xml
 </IfModule>

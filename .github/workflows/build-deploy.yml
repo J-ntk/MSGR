@@ -1,0 +1,104 @@
+# Rebuilds the website whenever content or code changes (including saves from the admin panel),
+# commits the generated pages, refreshes the GitHub Pages preview (docs/) and — once the hosting
+# secrets are set — uploads the site to Beget over FTP.
+#
+# Secrets (Settings → Secrets and variables → Actions → Secrets):
+#   FTP_SERVER    e.g. djdordje.beget.tech   (from the Beget panel → FTP)
+#   FTP_USERNAME  the FTP login
+#   FTP_PASSWORD  the FTP password
+# Variables (same page → Variables):
+#   FTP_DIR       folder on the server, e.g. mystudygr.com/public_html/   (must end with /)
+#   FTP_PROTOCOL  ftps (default) or ftp
+# Until FTP_SERVER is set, the workflow only builds — nothing is uploaded.
+
+name: Build and deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "content/**"
+      - "tools/**"
+      - "assets/**"
+      - "api/**"
+      - "admin/**"
+      - ".htaccess"
+      - "robots.txt"
+      - ".github/workflows/**"
+  workflow_dispatch:
+
+concurrency:
+  group: build-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      HAS_FTP: ${{ secrets.FTP_SERVER != '' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build site (RU + UA + KZ)
+        run: |
+          export MSGR_DATE=$(git log -1 --format=%cs -- content tools)
+          python tools/build_pages.py
+
+      - name: Build GitHub Pages preview (docs/)
+        run: |
+          export MSGR_DATE=$(git log -1 --format=%cs -- content tools)
+          rm -rf /tmp/gh && mkdir -p /tmp/gh && cp -r assets data /tmp/gh/
+          MSGR_OUT=/tmp/gh MSGR_BASE=/MSGR python tools/build_pages.py
+          sed -i -E 's#leadEndpoint: *"[^"]*"#leadEndpoint: ""#' /tmp/gh/assets/js/config.js
+          touch /tmp/gh/.nojekyll
+          printf 'User-agent: *\nDisallow: /\n' > /tmp/gh/robots.txt
+          mkdir -p docs && rsync -a --delete /tmp/gh/ docs/
+
+      - name: Check the build
+        run: |
+          test -f index.html && test -f ua/index.html && test -f kz/index.html
+          test "$(find . -path ./docs -prune -o -name index.html -print | wc -l)" -ge 39
+          grep -q 'hreflang="kk"' index.html
+
+      - name: Commit generated pages
+        run: |
+          git config user.name "msgr-build-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then echo "No changes"; else
+            git commit -m "Build site [skip ci]" && git push
+          fi
+
+      - name: Upload to hosting (Beget)
+        if: env.HAS_FTP == 'true'
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ${{ vars.FTP_PROTOCOL || 'ftps' }}
+          server-dir: ${{ vars.FTP_DIR }}
+          local-dir: ./
+          exclude: |
+            **/.git*
+            **/.git*/**
+            .github/**
+            tools/**
+            content/**
+            docs/**
+            README.md
+            MIGRATION.md
+            preview.html
+            api/config.php
+            api/data/**
+            **/__pycache__/**
+            _to_delete/**

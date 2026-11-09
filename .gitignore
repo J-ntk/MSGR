@@ -9,4 +9,7 @@ Thumbs.db
 # single-file preview (not part of the site)
 preview.html
 
+# admin panel data (leads database) — lives on the server only
+api/data/
+msgr-data/
 _to_delete/
