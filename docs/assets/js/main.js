@@ -288,6 +288,14 @@
     function val(n) { var el = form.querySelector('[name=' + n + ']:checked'); return el ? el.value : ''; }
     function label(n) { var el = form.querySelector('[name=' + n + ']:checked'); return el ? el.parentNode.textContent.trim() : ''; }
     var PKID = { bronze: 'pkg-bronze', silver: 'pkg-silver', gold: 'pkg-gold', brilliant: 'pkg-brilliant' };
+    // live prices/names from the admin panel (assets/js/site-data.js); falls back to the built-in texts
+    function fmtEur(n) { return '€' + String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' '); }
+    function pkInfo(pk, lang) {
+      var d = (window.MSGR_DATA && window.MSGR_DATA.packages || []).filter(function (p) { return p.id === pk; })[0];
+      var fb = (T[lang] || T.ru).pk[pk];
+      if (!d) return fb;
+      return [(d.name[lang] || d.name.ru) + ' · ' + fmtEur(d.price), d.quiz[lang] || d.quiz.ru || fb[1]];
+    }
     function show() {
       bar.style.width = '100%';
       var level = val('level'), grade = val('grade'), school = val('school'), help = val('help'), when = val('when');
@@ -301,12 +309,13 @@
       var time = when === 'next' ? L.tNext : when === 'later' ? L.tLater : L.tExplore;
       res.querySelector('[data-r-title]').textContent = title;
       res.querySelector('[data-r-text]').textContent = text;
-      res.querySelector('[data-r-pkg]').textContent = L.pk[pk][0];
-      res.querySelector('[data-r-pkgtext]').textContent = L.pk[pk][1];
+      var info = pkInfo(pk, T[LANG] ? LANG : 'ru');
+      res.querySelector('[data-r-pkg]').textContent = info[0];
+      res.querySelector('[data-r-pkgtext]').textContent = info[1];
       var link = res.querySelector('[data-r-pkglink]'); link.setAttribute('href', link.getAttribute('href').split('#')[0] + '#' + PKID[pk]);
       res.querySelector('[data-r-time]').textContent = time;
       var summary = ['level', 'school', 'grade', 'greek', 'when', 'help'].map(function (k) { return '• ' + label(k); }).join('\n');
-      res.querySelector('[data-r-summary]').value = 'Ответы теста:\n' + summary + '\nРекомендация: ' + T.ru.pk[pk][0] + ' (язык сайта: ' + LANG + ')';
+      res.querySelector('[data-r-summary]').value = 'Ответы теста:\n' + summary + '\nРекомендация: ' + pkInfo(pk, 'ru')[0] + ' (язык сайта: ' + LANG + ')';
       form.hidden = true; res.hidden = false; res.focus();
       if (window.dataLayer) window.dataLayer.push({ event: 'quiz_complete', quiz_package: pk });
     }
