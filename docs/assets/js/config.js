@@ -4,7 +4,7 @@
      ""               → no backend: the form opens the visitor's mail app (fallback).
    The web app will later replace this with its own API URL. */
 window.MSGR_CONFIG = {
-  leadEndpoint: ""  /* GitHub Pages has no PHP: form opens the mail app */,
+  leadEndpoint: "",
   fallbackEmail: "mystudygr1@gmail.com",
   whatsapp: "https://wa.me/306942770701"
 };
