@@ -82,7 +82,9 @@ What it does:
   lock after 8 wrong attempts, CSRF protection, 8-hour sessions, hidden from Google.
 
 Setup (once, on the server):
-1. `api/config.php` (from `config.example.php`): fill `admin_setup_key` (any long secret), `github_token`, Telegram.
+1. On Beget, `api/config.php` is **written automatically by GitHub Actions** from repository secrets
+   (`ADMIN_SETUP_KEY`, `ADMIN_GITHUB_TOKEN`, optional `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID`, variable `MAIL_TO`).
+   To change a setting: edit the secret in GitHub → Actions → Build and deploy → Run workflow.
 2. Open `https://mystudygr.com/admin/` → enter the setup key → create your account → then **clear `admin_setup_key`**.
 3. Create the owner's account in **Пользователи**.
 4. GitHub token: github.com → Settings → Developer settings → Fine-grained tokens → repository **J-ntk/MSGR** only,

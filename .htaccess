@@ -10,6 +10,7 @@ RewriteEngine On
 # (Beget runs nginx in front of Apache, so also trust X-Forwarded-Proto — avoids redirect loops)
 RewriteCond %{HTTP_HOST} ^www\. [NC]
 RewriteRule ^ https://mystudygr.com%{REQUEST_URI} [L,R=301,NE]
+RewriteCond %{HTTP_HOST} !^(localhost|127\.0\.0\.1)(:[0-9]+)?$ [NC]
 RewriteCond %{HTTPS} !=on
 RewriteCond %{HTTP:X-Forwarded-Proto} !=https
 RewriteCond %{HTTP:X-Forwarded-Ssl} !=on
