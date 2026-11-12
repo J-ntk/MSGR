@@ -25,23 +25,23 @@ if (users_count() === 0) {
     $err = '';
     if ($isPost && $p === 'setup') {
         if ($cfg['admin_setup_key'] === '' || !hash_equals($cfg['admin_setup_key'], (string) ($_POST['key'] ?? ''))) {
-            $err = 'Неверный ключ настройки (admin_setup_key в api/config.php).';
+            $err = 'Неверный ключ настройки (секрет ADMIN_SETUP_KEY в GitHub).';
         } else {
             $err = create_user((string) $_POST['username'], (string) $_POST['name'], (string) $_POST['password'], 'admin') ?? '';
             if ($err === '') {
                 try_login((string) $_POST['username'], (string) $_POST['password']);
                 audit('setup', 'создан первый администратор');
-                flash('Аккаунт создан. Теперь удалите значение admin_setup_key из api/config.php.', 'warn');
+                flash('Аккаунт создан. Теперь удалите секрет ADMIN_SETUP_KEY в GitHub и запустите Build and deploy.', 'warn');
                 redirect('/admin/');
             }
         }
     }
     page_start('Первый вход', '', true); ?>
     <form class="card narrow" method="post" action="/admin/?p=setup" autocomplete="off">
-      <img class="logo" src="/assets/img/logo.png" alt="" width="64" height="64">
+      <?= brand_tile() ?>
       <h1>Создание администратора</h1>
       <?php if ($cfg['admin_setup_key'] === ''): ?>
-        <p class="flash flash--warn">Сначала впишите любой длинный секретный текст в <code>admin_setup_key</code> в файле api/config.php.</p>
+        <p class="flash flash--warn">Сначала добавьте в GitHub секрет <code>ADMIN_SETUP_KEY</code> (любой длинный секретный текст) и запустите Build and deploy.</p>
       <?php endif; ?>
       <?php if ($err): ?><p class="flash flash--bad"><?= e($err) ?></p><?php endif; ?>
       <?= csrf_field() ?>
@@ -66,7 +66,7 @@ if ($p === 'login') {
     }
     page_start('Вход', '', true); ?>
     <form class="card narrow" method="post" action="/admin/?p=login">
-      <img class="logo" src="/assets/img/logo.png" alt="" width="64" height="64">
+      <?= brand_tile() ?>
       <h1>Вход в админ-панель</h1>
       <?php if ($err): ?><p class="flash flash--bad"><?= e($err) ?></p><?php endif; ?>
       <?= csrf_field() ?>
@@ -158,7 +158,7 @@ if ($p === 'save' && $isPost) {
     if (!isset($cols[$key])) redirect('/admin/');
     $col = $cols[$key];
     try {
-        if (!gh_ready()) throw new RuntimeException('Публикация не настроена: нет github_token в api/config.php.');
+        if (!gh_ready()) throw new RuntimeException('Публикация ещё не подключена — см. инструкцию на этой странице.');
         $data = json_decode((string) ($_POST['data'] ?? ''), true);
         if (!is_array($data)) throw new RuntimeException('Не удалось прочитать данные формы.');
         [$old] = gh_read_json($col['file']);
@@ -269,7 +269,7 @@ case 'dashboard':
       <section class="card">
         <div class="card__head"><h2>Публикация сайта</h2><a href="/admin/?p=history">История →</a></div>
         <?php if (!gh_ready()): ?>
-          <p class="flash flash--warn">Публикация не настроена: добавьте <code>github_token</code> в api/config.php. Без него можно работать с заявками, но не редактировать сайт.</p>
+          <p class="flash flash--warn">Публикация ещё не подключена — заявками можно пользоваться, а для редактирования сайта нужен один шаг настройки. <a href="/admin/?p=edit&c=packages">Как подключить →</a></p>
         <?php elseif (!$runs): ?><p class="muted">Пока нет запусков сборки.</p>
         <?php else: ?>
           <ul class="mini">
@@ -288,10 +288,12 @@ case 'dashboard':
     </div>
     <?php
     $checks = [];
-    if ($c['admin_setup_key'] !== '') $checks[] = 'Удалите значение <code>admin_setup_key</code> из api/config.php — первый аккаунт уже создан.';
-    if (!$c['telegram_bot_token']) $checks[] = 'Telegram не подключён — заявки приходят только на почту и сюда. Подключение: README → «Telegram».';
-    if ($checks && $me['role'] === 'admin'): ?>
-      <section class="card"><h2>Настройка</h2><ul><?php foreach ($checks as $ch) echo "<li>$ch</li>"; ?></ul></section>
+    if ($c['admin_setup_key'] !== '') $checks[] = ['warn', 'Ключ первого входа ещё активен', 'Удалите секрет <code>ADMIN_SETUP_KEY</code> в GitHub и запустите Build and deploy.'];
+    $checks[] = gh_ready() ? ['ok', 'Публикация сайта', 'Подключена'] : ['warn', 'Публикация сайта', 'Не подключена — <a href="/admin/?p=edit&c=packages">инструкция</a>'];
+    $checks[] = $c['telegram_bot_token'] ? ['ok', 'Telegram', 'Заявки приходят в Telegram'] : ['muted', 'Telegram', 'Не подключён — заявки приходят на почту и сюда'];
+    $checks[] = $c['mail_to'] ? ['ok', 'Почта для заявок', e($c['mail_to'])] : ['warn', 'Почта для заявок', 'Не указана'];
+    if ($me['role'] === 'admin'): ?>
+      <section class="card"><h2>Состояние</h2><ul class="checks"><?php foreach ($checks as [$st, $t, $d]) echo '<li><span class="dot dot--' . $st . '"></span><b>' . e($t) . '</b><span class="muted">' . $d . '</span></li>'; ?></ul></section>
     <?php endif;
     page_end();
     break;
@@ -393,13 +395,14 @@ case 'edit':
     if (!isset($cols[$key])) redirect('/admin/');
     $col = $cols[$key];
     $data = null; $sha = ''; $err = '';
-    if (!gh_ready()) $err = 'Редактирование сайта не настроено: добавьте github_token в api/config.php (см. README).';
+    if (!gh_ready()) $err = 'setup';
     else { try { [$data, $sha] = gh_read_json($col['file']); } catch (Throwable $ex) { $err = $ex->getMessage(); } }
     if ($data !== null && !empty($_GET['draft']) && isset($_SESSION['draft'][$key])) $data = $_SESSION['draft'][$key];
     page_start($col['title'], 'edit:' . $key); ?>
     <div class="head-row"><h1><?= e($col['title']) ?></h1><a href="/admin/?p=history&c=<?= $key ?>">История и откат →</a></div>
     <p class="muted"><?= e($col['hint']) ?></p>
-    <?php if ($err): ?><p class="flash flash--bad"><?= e($err) ?></p><?php page_end(); break; endif;
+    <?php if ($err === 'setup') { echo publish_setup_help(); page_end(); break; }
+    if ($err): ?><p class="flash flash--bad"><?= e($err) ?></p><?php page_end(); break; endif;
     $miss = missing_translations($data, $col['schema']);
     if ($miss): ?>
       <details class="flash flash--warn"><summary>Нет перевода: <?= count($miss) ?> <?= count($miss) === 1 ? 'поле' : 'полей' ?> — на UA/KZ-версии там будет русский текст</summary><ul class="small"><?php foreach (array_slice($miss, 0, 40) as $m) echo '<li>' . e($m) . '</li>'; ?></ul></details>
@@ -441,7 +444,7 @@ case 'history':
             echo '</ul>';
         }
     } elseif (!gh_ready()) {
-        echo '<p class="flash flash--warn">История доступна после настройки github_token.</p>';
+        echo publish_setup_help();
     } else {
         $commits = gh_history($cols[$key]['file'], 20);
         echo '<div class="table-wrap"><table class="table"><thead><tr><th>Когда</th><th>Изменение</th><th></th></tr></thead><tbody>';
@@ -484,7 +487,7 @@ case 'users':
     break;
 
 case 'account':
-    page_start('Мой аккаунт', ''); ?>
+    page_start('Мой аккаунт', 'account'); ?>
     <h1>Мой аккаунт</h1>
     <form class="card narrow-left" method="post" action="/admin/?p=account">
       <?= csrf_field() ?>

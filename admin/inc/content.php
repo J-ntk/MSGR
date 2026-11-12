@@ -132,7 +132,7 @@ function gh_write_json(string $file, array $data, string $sha, string $message):
         'committer' => ['name' => 'MSGR admin (' . ($u['username'] ?? '?') . ')', 'email' => 'admin@mystudygr.com'],
     ]);
     if ($r['status'] === 409 || $r['status'] === 422) throw new RuntimeException('Файл успели изменить в другом окне. Обновите страницу — ваши правки нужно будет повторить.');
-    if ($r['status'] !== 200 && $r['status'] !== 201) throw new RuntimeException('GitHub отклонил сохранение (код ' . $r['status'] . '). Проверьте токен в config.php.');
+    if ($r['status'] !== 200 && $r['status'] !== 201) throw new RuntimeException('GitHub отклонил сохранение (код ' . $r['status'] . '). Проверьте секрет ADMIN_GITHUB_TOKEN в GitHub (права Contents: Read and write).');
     return $r['body'];
 }
 
